@@ -1,0 +1,95 @@
+---
+title: "HW5"
+author: "Renjie Liu"
+date: "5/2/2021"
+output: html_document
+---
+```{r}
+library(TSA)
+library(fpp)
+library(forecast)
+library(ggplot2)
+```
+Question 1:
+Load the condmilk.rda dataset and split it into a training dataset (1971/1 – 1979/12) and a test dataset (1980/1 – 1980/12)
+```{r}
+load('condmilk.rda')
+plot(condmilk)
+train <- window(condmilk,start = c(1971,1) ,end = c(1979,12))
+test <- window(condmilk, start = c(1980,1), end = c(1980,12))
+```
+
+Question 2:
+Plot the training dataset. Is Box-Cox transformation necessary for this data?
+```{r}
+tsdisplay(train)
+```
+Box-cox transformation is not necessary because the variance does not increase or decrease as time progress. 
+
+Question 3:
+Is the training dataset stationary? If not, find an appropriate differencing which yields seasonal and trend stationary training dataset. Plot the ACF and PACF to determine if the detrended and deseasonalized time series is stationary.
+```{r}
+adf.test(train)
+
+adf.test(diff(train,lag = 12))
+
+tsdisplay(diff(train,lag = 12))
+```
+The train dataset is not stationary because there is a seasonal pattern in the dataset. The acf shows that there is no seasonal pattern in the detrended data.
+
+Question 4:
+Build two 𝐴𝑅𝐼𝑀𝐴(𝑝,𝑑,𝑞)(𝑃,𝑄,𝐷)𝑠 models using the training dataset and auto.arima() function.
+• Model 1: Let the auto.arima() function determine the best order of non-seasonal and seasonal differencing.
+• Model 2: Set the order of seasonal-differencing 𝑑 to 1 and 𝐷 to 1.
+Report the resulting 𝑝,𝑑,𝑞,𝑃,𝐷,𝑄,𝑠 and the coefficients values for all cases and compare their AICc and BIC values.
+```{r}
+auto <- auto.arima(train, stepwise = FALSE, approximation =FALSE, seasonal = TRUE)
+auto
+
+a1 <- auto.arima(train, stepwise = FALSE, approximation =FALSE, d = 1, D =1, seasonal = TRUE)
+a1
+```
+The first model produced the seasonal part with first order differencing and autoregression 2 with non-seasonal part with no differencing with autoregression 1. The second model produced the same seasonal part, first order differencing with autoregression 2. The non seasonal part is different, and it has first order differencing with moving average 1. Based on the AICc, the first model is slightly better. 
+
+Question 5:
+Plot the residuals ACF of both models from part 4 and use the Ljung-Box Test with lag 12 to verify your conclusion.
+```{r}
+checkresiduals(auto)
+
+checkresiduals(a1)
+```
+Based on the ljung box test, the p value for both models are bigger than 0.05. So fail to reject the null that the residual is white noise. This means that both the model capture the pattern in the data well. 
+
+Question 6:
+Use both models from part 4 and the h-period argument in the forecast() function to forecast each month of 1980 (i.e., Jan, Feb, …, Dec.) Plot the test dataset and forecasted values.
+```{r}
+autof <-forecast(auto, h=12)
+a1f <- forecast(a1, h =12)
+
+autoplot(test) +
+  autolayer(autof$mean, series="first Auto ARIMA") +
+  autolayer(a1f$mean, series="Second Auto ARIMA") +
+  ggtitle("Forecasts") +
+  xlab("Date")
+```
+
+Question 7:
+Compare the forecast with the actual test data by calculating the Mean Absolute Percentage Error (MAPE) and Mean Squared Error (MSE). Which model is better to forecast the Manufacturer's Stocks for each month of 1980 (i.e., Jan, Feb, …, Dec)?
+```{r}
+accuracy(autof,test)
+
+accuracy(a1f,test)
+```
+Based on MAPE and MSE (RMSE)^2, the first model is better at forecasting the manufacturer's stocks for 1980 because the mape and mse are smaller than the second model. 
+
+Question 8:
+Forecast each month of 1980 (i.e., Jan, Feb, …, Dec.) using the seasonal naïve forecast method. Plot the test dataset and forecasted values, and compare the forecast with the actual test data by calculating the Mean Absolute Percentage Error (MAPE) and Mean Squared Error (MSE).
+```{r}
+snf <- snaive(train, h = 12)
+autoplot(test) +
+  autolayer(snf$mean, series="Seasonal Naive") +
+  ggtitle("Forecasts") +
+  xlab("Date")
+accuracy(snf,test)
+```
+Based on the MSE and MAPE of the seasonal naive model, the seasonal naive is better than both of the arima model above because the RMSE and MAPE for the testset is slighter smaller. 

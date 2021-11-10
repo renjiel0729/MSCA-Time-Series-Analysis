@@ -1,0 +1,102 @@
+---
+title: "Final Project Team 3"
+date: "5/19/2021"
+output: html_document
+---
+### Data Preparation 
+```{r}
+# Load Required Packages
+library(TSA)
+library(fpp)
+library(forecast)
+library(ggplot2)
+```
+
+```{r}
+# Load Power Data
+data <- read.csv('data/power.csv')
+head(data)
+```
+
+```{r}
+# Extract the daily power usage
+data$StartDate <- substr(data$StartDate, 1,10)
+
+agg <- aggregate(data[, 2], list(data$StartDate), sum)
+head(agg)
+```
+
+```{r}
+# Use data from 2-17 - 2019
+power <- agg[substr(agg$Group.1,1,4) == '2017' | substr(agg$Group.1,1,4) =='2018'|substr(agg$Group.1,1,4) =='2019',]
+
+head(power)
+```
+
+```{r}
+# Conver to time sereis
+colnames(power) <- c('Date', 'Usage')
+
+# Time Series Plot
+train <- ts(power$Usage, start = c(2017,1),frequency = 365)
+tsdisplay(train)
+```
+```{r}
+auto <- auto.arima(train, D = 1)
+auto
+```
+
+```{r}
+# Load weather data
+weather <- read.csv('data/weather.csv')
+head(weather)
+```
+```{r}
+# Extract the weather details
+weather$Date <- substr(weather$Date, 1,10)
+
+agg2 <- aggregate(weather[, c(4,7,10,13,16,18)], list(weather$Date), mean)
+head(agg2)
+```
+
+```{r}
+# Use data from 2-17 - 2019
+weather <- agg2[substr(agg2$Group.1,1,4) == '2017' | substr(agg2$Group.1,1,4) =='2018'|substr(agg2$Group.1,1,4) =='2019',]
+
+head(weather)
+```
+
+```{r}
+# Convert Temperature to average
+temp_train <- ts(weather$Temp_avg, start = c(2017,1), end = c(2018,365),frequency = 365)
+tsdisplay(temp_train)
+temp_test <- ts(weather$Temp_avg, start = c(2018,1), end = c(2019,365),frequency = 365)
+tsdisplay(temp_test)
+```
+### Model Building
+linear Regression
+```{r}
+lm1 <- tslm(log(train)~log(temp_train))
+lm1
+```
+```{r}
+# Check model fitting
+plot(x = log(temp_train), y = log(train), col = 1)
+abline(lm1, col = 2)
+legend('topleft', legend = c('actual' , 'Trend'), col = 1:2, lty = 1)
+```
+```{r}
+# Evaluate results and residuals
+summary(lm1)
+
+checkresiduals(lm1)
+```
+```{r}
+auto <- auto.arima()
+```
+
+
+
+
+
+

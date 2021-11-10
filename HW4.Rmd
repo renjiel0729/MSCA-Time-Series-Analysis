@@ -1,0 +1,108 @@
+---
+title: "HW4"
+author: "Renjie Liu"
+date: "4/25/2021"
+output: html_document
+---
+### Question 1:
+Combine the data from the 16 files into a single dataset and plot it.
+```{r}
+library(fpp)
+library(TSA)
+# Manually combine the excel file into one cxv file
+traffic <- read.csv('traffic.csv')
+
+ts <- ts(traffic$Exit, frequency = 1)
+plot(ts)
+```
+### Question 2:
+Split the dataset into a training dataset which includes 6/16/2013 - 6/30/2013 samples and a test dataset which includes 7/1/2013 samples and plot the ACF and PACF.
+```{r}
+library(forecast)
+train <- ts(traffic$Exit[1:360], frequency = 1)
+test <- ts(traffic$Exit[361:384], frequency = 1)
+
+tsdisplay(train)
+```
+In the train plot. The ACF plot is sinusoidal, and the PACF has a cutoff after 2 lags. This indicated a non seasonal of AR2. 
+
+### Question 3:
+Build an 𝐴𝑅𝐼𝑀𝐴(𝑝,𝑑,𝑞) model using the training dataset and R auto.arima() function. Change the values of 𝑝 and 𝑞 and determine the best model using AICc and BIC values. Do AICc and BIC select the same model as the best model? For each derived model, review the residual plots for the residuals ACF and normality.
+```{r}
+auto <- auto.arima(train, stepwise = FALSE, approximation = FALSE,seasonal = FALSE)
+auto
+
+a1 <- Arima(train, order = c(2,0,0))
+a1
+a2 <- Arima(train, order = c(2,0,4))
+a2
+a3 <- Arima(train, order = c(2,0,1))
+a3
+a4 <- Arima(train, order = c(1,0,3))
+a4
+
+
+checkresiduals(auto)
+checkresiduals(a1)
+checkresiduals(a2)
+checkresiduals(a3)
+checkresiduals(a4)
+
+shapiro.test(auto$residuals)
+shapiro.test(a1$residuals)
+shapiro.test(a2$residuals)
+shapiro.test(a3$residuals)
+shapiro.test(a4$residuals)
+```
+Based on the AICc and BICc, ARIMA(2,0,3) has the lowest AICc and BIC, so this will be the best model with no seasonal effect. From the ACF plot of the resuduals, we can see that there are significant valus, and this indicate that the residual is not white noise. Based on the Ljung-Box test, the p value is smaller than 0.05. This indicates that the residual is not white noise, and the model does not capture the pattern very well. Based on the shapiro-wilk normality test, the residual is not normally distributed, so this also means that the model does not capture the pattern very well. Other models' residuals are also not white noise, and their residuals are not normally distributed.  
+
+### Question 4:
+Build a day of the week seasonal 𝐴𝑅𝐼𝑀𝐴(𝑝,𝑑,𝑞)(𝑃,𝑄,𝐷)𝑠 model using the training dataset and R auto.arima() function.
+```{r}
+train1 <- ts(traffic$Exit[1:360], frequency = 7*24)
+auto2<- auto.arima(train1, stepwise = FALSE, approximation = FALSE, seasonal = TRUE)
+auto2
+```
+From the auto arima, the best model is seasonal with first order differencing, and first order differencing with ma2 for the non seasonal part. 
+
+### Question 5:
+Use the 𝐴𝑅𝐼𝑀𝐴(𝑝,𝑑,𝑞)(𝑃,𝑄,𝐷)𝑠 model from Question 4 to forecast for July 1st (which is a Monday). Plot your result.
+```{r}
+fore1 <- forecast(auto2,h=24,level = c(80, 95))
+plot(fore1)
+```
+
+### Question 6:
+Build a hour of the day seasonal 𝐴𝑅𝐼𝑀𝐴(𝑝,𝑑,𝑞)(𝑃,𝑄,𝐷)𝑠model using the training dataset and R auto.arima() function.
+```{r}
+train1 <- ts(traffic$Exit[1:360], frequency = 24)
+auto3<- auto.arima(train1, stepwise = FALSE, approximation = FALSE, seasonal = TRUE)
+auto3
+```
+From the auto arima, the best model is seasonal with first order differencing with AR2, and AR2 with MA1 with no differencing for the non seasonal part.
+
+
+### Question 7:
+Use the 𝐴𝑅𝐼𝑀𝐴(𝑝,𝑑,𝑞)(𝑃,𝑄,𝐷)𝑠 model from Question 6 to forecast for July 1st (which is a Monday). Plot your result.
+```{r}
+fore2 <- forecast(auto3,h=24,level = c(80, 95))
+plot(fore2)
+```
+
+### Question 8:
+Compare the forecast of the models from Questions 5 and 7 for July 1 8:00, 9:00, 17:00 and 18:00, which model is better (Questions 4 or 6)?
+```{r}
+f1 <- fore1$mean[c(8,9,17,18)]
+f2 <- fore2$mean[c(8,9,17,18)]
+
+actual <- traffic$Exit[c(368,369,377,378)]
+
+err1 <- actual - f1
+err2 <- actual - f2
+
+plot(err1)
+plot(err2)
+sum((err1)^2)
+sum((err2)^2)
+```
+The error is smaller for the non seasonal model than the seasonal in temrs of error and squared for forecasting July 1 8:00, 9:00, 17:00 and 18:00. 

@@ -1,0 +1,233 @@
+---
+title: "HW6"
+author: "Renjie Liu"
+date: "5/8/2021"
+output: html_document
+---
+### Question 1:
+Load and plot the visitors dataset and plot the dataset with and without the Box Cox transformation.
+Describe the main dataset characteristics.
+```{r}
+library(TSA)
+library(fpp)
+library(forecast)
+load('visitors_monthly.rda')
+
+data <- ts(visitors$x, start = c(1985,5), end = c(2005,4), frequency = 12)
+tsdisplay(data)
+
+BoxCox.lambda(data)
+
+data_box <- BoxCox(data, lambda = 0.278)
+tsdisplay(data_box)
+```
+Before the boxcox transformation the dataset has variance increases as time progress. There is a positive trend, and the pacf cut off after three lags indicate auto regression of 3. After the box cox transformation, the data the variance stay the same as  time progresss. From the pacf plot, the cutoff after two lags also indicate a auto regression of 3. 
+
+### Question 2:
+Build two models using the entire visitors dataset
+a. Model 1: Let the auto.arima() function determine the best order 𝐴𝑅𝐼𝑀𝐴(𝑝, 𝑑, 𝑞)(𝑃, 𝑄, 𝐷)𝑠
+model.
+b. Model 2: Let the ets() function determine the best model for exponential smoothing.
+```{r}
+auto <- auto.arima(data,lambda = 'auto')
+auto
+
+ets <- ets(data)
+ets
+```
+
+
+### Question 3:
+In this section you will apply the time-series cross validation method to train and test various models.
+Use the following values when training and testing the models:
+• Set the minimum number of samples required to train the model to 160 (i.e., this is the
+minimum number of samples in the sliding window and the initial number of samples in the
+expanding window method.)
+• Set the number the forecast horizon, ℎ, to 1 year (i.e., 12 months.)
+• Recall that the period, 𝑝, is equal to 12 months
+• Use a single observation incrementation in each iteration (i.e., shift the training set forward by 1
+observation.)
+• Note: You are expected to have 80 iterations of cross validation
+
+For each iteration, apply the following 4 forecasts:
+1) Use the Arima() function to estimate a sARIMA([1,0,1][0,1,2]12 with drift model for:
+a. Expanding training window and
+b. Sliding training window
+2) Use the Exponential Smoothing function ets() to estimate a MAM (Multiplicative Error, Additive
+trend, multiplicative Season) model for:
+a. Expanding training window
+b. Sliding training window
+For each test window record the:
+1) One-year forecast horizon error
+2) Estimated model AICc value.
+For each of the four models above, calculate and plot the
+1) Mean Absolute Forecast Error (MAE) vs forecast horizon.
+2) Root-square Forecast Error (RMSE) vs forecast horizon.
+3) AICc vs iteration number
+```{r}
+k <- 160 # minimum data length for fitting a model
+n <- length(data) # Number of data points
+
+p <- 12 ### Period
+H <- 12 # Forecast Horiz
+```
+
+```{r}
+defaultW <- getOption("warn") 
+options(warn = -1)
+
+st <- tsp(data)[1]+(k-2)/p #  gives the start time in time units,
+
+mae_1 <- matrix(NA,n-k,H)
+mae_2 <- matrix(NA,n-k,H)
+
+AICc_1 <- matrix(NA,n-k,1)
+AICc_2 <- matrix(NA,n-k,1)
+
+RMSE_1 <- matrix(NA,n-k,H)
+RMSE_2 <- matrix(NA,n-k,H)
+
+for(i in 1:(n-k))
+  {
+  
+  ### One Month rolling forecasting
+  # Expanding Window 
+  train_1 <- window(data, end=st + i/p)  ## Window Length: k+i
+  
+  # Sliding Window - keep the training window of fixed length. 
+  # The training set always consists of k observations.
+  train_2 <- window(data, start=st+(i-k+1)/p, end=st+i/p) ## Window Length: k
+  
+  test <- window(data, start=st + (i+1)/p, end=st + (i+H)/p) ## Window Length: H
+
+  if (i<81) {
+  cat(c("*** CV", i,":","len(Expanding Window):",length(train_1), "len(Sliding Window):",length(train_2), "len(Test):",length(test),'\n'  ))
+  cat(c("*** TRAIN -  Expanding WIndow:",tsp(train_1)[1],'-',tsp(train_1)[2],'\n'))
+  cat(c("*** TRAIN - Sliding WIndow:",tsp(train_2)[1],'-',tsp(train_2)[2],'\n'))
+  cat(c("*** TEST:",tsp(test)[1],'-',tsp(test)[2],'\n'))
+  cat("*************************** \n \n")
+  }
+  
+  
+  fit_1 <- Arima(train_1, order=c(1,0,1), seasonal=list(order=c(0,1,2), period=p),
+                include.drift=TRUE, lambda='auto', method="ML")
+  fcast_1 <- forecast(fit_1, h=H)
+  
+  
+  fit_2 <- Arima(train_2, order=c(1,0,1), seasonal=list(order=c(0,1,2), period=p),
+                include.drift=TRUE, lambda='auto', method="ML")
+  fcast_2 <- forecast(fit_2, h=H)
+  
+  mae_1[i,1:length(test)] <- abs(fcast_1[['mean']]-test)
+  mae_2[i,1:length(test)] <- abs(fcast_2[['mean']]-test)
+  
+  AICc_1[i,1] <- fit_1$aicc
+  AICc_2[i,1] <- fit_2$aicc
+  
+  RMSE_1[i,1:length(test)] <- (fcast_1[['mean']]-test)^2
+  RMSE_2[i,1:length(test)] <- (fcast_2[['mean']]-test)^2
+}
+```
+
+```{r}
+k <- 160 # minimum data length for fitting a model
+n <- length(data) # Number of data points
+
+p <- 12 ### Period
+H <- 12 # Forecast Horiz
+```
+
+```{r}
+# For ets
+defaultW <- getOption("warn") 
+options(warn = -1)
+
+st <- tsp(data)[1]+(k-2)/p #  gives the start time in time units,
+
+mae_3 <- matrix(NA,n-k,H)
+mae_4 <- matrix(NA,n-k,H)
+
+AICc_3 <- matrix(NA,n-k,1)
+AICc_4 <- matrix(NA,n-k,1)
+
+RMSE_3 <- matrix(NA,n-k,H)
+RMSE_4 <- matrix(NA,n-k,H)
+
+for(i in 1:(n-k))
+  {
+  
+  ### One Month rolling forecasting
+  # Expanding Window 
+  train_3 <- window(data, end=st + i/p)  ## Window Length: k+i
+  
+  # Sliding Window - keep the training window of fixed length. 
+  # The training set always consists of k observations.
+  train_4 <- window(data, start=st+(i-k+1)/p, end=st+i/p) ## Window Length: k
+  
+  test <- window(data, start=st + (i+1)/p, end=st + (i+H)/p) ## Window Length: H
+
+  if (i<81) {
+  cat(c("*** CV", i,":","len(Expanding Window):",length(train_3), "len(Sliding Window):",length(train_4), "len(Test):",length(test),'\n'  ))
+  cat(c("*** TRAIN -  Expanding WIndow:",tsp(train_3)[1],'-',tsp(train_3)[2],'\n'))
+  cat(c("*** TRAIN - Sliding WIndow:",tsp(train_4)[1],'-',tsp(train_4)[2],'\n'))
+  cat(c("*** TEST:",tsp(test)[1],'-',tsp(test)[2],'\n'))
+  cat("*************************** \n \n")
+  }
+  
+  
+  fit_3 <- ets(train_3,model = 'MAM')
+  fcast_3 <- forecast(fit_3, h=H)
+  
+  
+  fit_4 <- ets(train_4,model = 'MAM')
+  fcast_4 <- forecast(fit_4, h=H)
+  
+  mae_3[i,1:length(test)] <- abs(fcast_3[['mean']]-test)
+  mae_4[i,1:length(test)] <- abs(fcast_4[['mean']]-test)
+  
+  AICc_3[i,1] <- fit_3$aicc
+  AICc_4[i,1] <- fit_4$aicc
+  
+  RMSE_3[i,1:length(test)] <-  (fcast_3[['mean']]-test)^2
+  RMSE_4[i,1:length(test)] <-  (fcast_4[['mean']]-test)^2
+}
+```
+
+
+```{r}
+plot(colMeans(mae_1,na.rm=TRUE), type="l",col=1,xlab="horizon", ylab="MAE")
+lines(colMeans(mae_2,na.rm=TRUE), type="l",col=2)
+lines(colMeans(mae_3,na.rm=TRUE), type="l",col=3)
+lines(colMeans(mae_4,na.rm=TRUE), type="l",col=4)
+
+legend("topleft",legend=c("ARIMA - Expanding Window","ARIMA - Sliding Window","ETS - Expanding Window","ETS - Sliding Window"),col=1:4,lty=1)
+```
+The MAE line for the four models are very similar. They are all increasing as time progress. ETS expanding window has the highest MAE. ETS Sliding has the second high MAE and followed by ARIMA expanding window, and ARIMA Sliding Window has the lowest MAE. Thus, ARIMA model is better if the model is evaluated based on MAE.
+
+```{r}
+plot(AICc_1, type="l",col=1,xlab="horizon", ylab="AICc",ylim=c(-1000,2500))
+lines(AICc_2, type="l",col=2)
+lines(AICc_3, type="l",col=3)
+lines(AICc_4, type="l",col=4)
+
+legend("topleft",legend=c("ARIMA - Expanding Window","ARIMA - Sliding Window","ETS - Expanding Window","ETS - Sliding Window"),col=1:4,lty=1)
+```
+ETS models has significantly higher AICc than ARIMA models. Expanding window models also have higher AICc than sliding window models. Thus, Arima model is better beacsue it has lower AIcc value.
+
+```{r}
+plot(sqrt(colMeans(RMSE_1,na.rm=TRUE)), type="l",col=1,xlab="horizon", ylab="RMSE")
+lines(sqrt(colMeans(RMSE_2,na.rm=TRUE)), type="l",col=2)
+lines(sqrt(colMeans(RMSE_3,na.rm=TRUE)), type="l",col=3)
+lines(sqrt(colMeans(RMSE_4,na.rm=TRUE)), type="l",col=4)
+
+legend("topleft",legend=c("ARIMA - Expanding Window","ARIMA - Sliding Window","ETS - Expanding Window","ETS - Sliding Window"),col=1:4,lty=1)
+```
+The RMSE plot looks very similar to the MAE plot, and it makes sense since they are all measure of error for the models. Based on RMSE, ETS expanding window has the highest RMSE, ARIMA expanding has the second highest RMSE, ETS Sliding window has the third highest RMSE, and ARIMA sliding window has the lowest RMSE.
+Based on the three plot, I can conclude that ARIMA - Sliding window is the best model for prediction for this dataset because it has the lowest AICc, MAE and RMSE compared to other models.
+
+### Question 4:
+What are the disadvantages of the above methods? What would be a better approach to estimate the
+models? Hint: How were the SARIMA and exponential time series models determined in question 3?
+
+The disadvantage of the above model is because the model may not be the best model for the dataset. For example, we used sARIMA([1,0,1][0,1,2]12 with drift model for the ARIMA model in q3, but this model is not the model producd by the auto arima in q3. In addition, the ets MAM model is the best model for the whole dataset in q2, and this may not be the best mdoel for the train dataset. Incremental model can also be helpful in the future if the dataset is much larger than this dataset to reduce the runtime. 
+

@@ -1,0 +1,74 @@
+---
+title: "hw2"
+author: "Renjie Liu"
+date: "4/9/2021"
+output: html_document
+---
+1. Load the visitors.rda dataset, make a time plot of your data and describe the main features of the series.
+```{r}
+library(forecast)
+load('visitors.rda')
+tsv <- ts(visitors$Arrivals,frequency = 4,start = 1981)
+plot(tsv)
+## There is a upward trend for this time series. It appears that some seasonality exists in this time series. It is not stationary, and does not appear to be cyclic. 
+```
+
+2. What is the appropriate Holt-Winters method for this data set (multiplicative / additive)? why?
+```{r}
+## The appropriate Holt-Winters method for this data set is multiplicative becasue the gap between the max and min for the time series is getting larger and larger as time progress. 
+```
+
+3. Use the hw() function to forecast the next 16 quarters using Holt-Winters’ methods. Experiment with the following methods
+• Linear trend with additive seasonality
+• Linear trend with multiplicative seasonality
+• Linear trend with additive seasonality and damping
+• Linear trend with multiplicative seasonality and damping
+Also, use the snaive() function to forecast the next 16 quarters using Seasonal naïve method.
+```{r}
+#Linear trend with additive seasonality
+fit_hw1 <- hw(tsv, h=16, seasonal="additive",exponential = FALSE)
+summary(fit_hw1)
+plot(fit_hw1)
+
+#Linear trend with multiplicative seasonality
+fit_hw2 <- hw(tsv, h=16, seasonal="multiplicative",exponential = FALSE)
+summary(fit_hw2)
+plot(fit_hw2)
+
+#Linear trend with additive seasonality and damping
+fit_hw3 <- hw(tsv, h=16, seasonal="additive",exponential = FALSE,damped = TRUE)
+summary(fit_hw3)
+plot(fit_hw3)
+
+#Linear trend with multiplicative seasonality and damping
+fit_hw4 <- hw(tsv, h=16, seasonal="multiplicative",exponential = FALSE,damped = TRUE)
+summary(fit_hw4)
+plot(fit_hw4)
+
+#forecast the next 16 quarters using Seasonal naïve method
+naive1 <- snaive(tsv,h=16)
+summary(naive1)
+plot(naive1)
+```
+4. Use the accuracy() function to compare the Root-Mean-Square-Error (RMSE) values of the forecasts from the various methods. Which do you prefer and why?
+```{r}
+accuracy(fit_hw1)
+accuracy(fit_hw2)
+accuracy(fit_hw3)
+accuracy(fit_hw4)
+accuracy(naive1)
+
+# Based on the rmse. the forecast with Linear trend with multiplicative seasonality and damping is the best because the rmse is the least for this forecast.
+```
+5. Use the checkresiduals() function to check that the residuals from the best model look like white noise and provide a summary of the model’s smoothing parameters using the summary() function.
+```{r}
+checkresiduals(fit_hw4)
+# p-value  < 0.05 ==> This means we accept Alternative hypothesis that Residuals are autocorrelated. 
+#We can see significant spikes at lag 4,5,9,16 from the ACF plot. This means that the residual is not white noise. The histogram of the residuals is not normally distributed because it is slightly skewed. The residual plot also does not look like white noise.
+# This means that although the model is the best in terms of RMSE, it still does not capture the pattern in the data very well. 
+
+summary(fit_hw4)
+#alpha is in the middle of 0.52. This means that weight is balanced between the recent and old observations. The small beta of 0.0027 means that the slope hardly changes over time. The close to gamma means that the seasonal component hardly changes over time. phi is very large in this model, so this means that trend line changes very rapidly. 
+```
+
+

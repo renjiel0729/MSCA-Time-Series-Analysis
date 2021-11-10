@@ -1,0 +1,114 @@
+---
+title: "HW3"
+author: "Renjie Liu"
+date: "4/17/2021"
+output: html_document
+---
+## Question 1:
+Load the usgdp.rda dataset and split it into a training dataset (1960 - 2012) and a test dataset (2013 - 2017)
+```{r}
+library(fpp)
+library(TSA)
+
+load('usgdp.rda')
+gdp <- ts(usgdp$GDP, frequency = 1,start = 1960)
+
+train <- window(gdp,start = 1960, end = 2012)
+test <- window(gdp,start = 2013, end = 2017)
+```
+
+## Question 2:
+Plot the training dataset. Is the Box-Cox transformation necessary for this data?
+```{r}
+plot(train)
+BoxCox.lambda(train)
+
+train <- BoxCox(train, lambda = 0.23)
+plot(train)
+```
+
+The box - cox transformation is necessary for this data because the data is increasing exponentianally. larger variance between lags as time progress.
+
+## Question 3:
+Plot the 1st and 2nd order difference of the data. Apply KPSS Test for Stationarity to determine which difference order results in a stationary dataset.
+```{r}
+library(tseries)
+# first order difference of the data
+
+plot(diff(train,differences = 1))
+
+# second order difference of the data
+plot(diff(train,differences = 2))
+
+#Use kpss.test to test stationary
+kpss.test(diff(train,differences = 1))
+
+kpss.test(diff(train,differences = 2))
+```
+
+Based on the kpss test. Both the first and second order difference of the data is stationary. Because the p-value is larger than 0.05, so fail to reject the null hypothesis that the time series is stationary.
+
+
+## Question 4:
+Fit a suitable ARIMA model to the training dataset using the auto.arima() function. Remember to transform the data first if necessary. Report the resulting 𝑝,𝑑,𝑞 and the coefficients values.
+```{r}
+auto <- auto.arima(train,seasonal = FALSE)
+auto
+```
+
+The best model from auto arima is p = 1, d = 1, and q = 0. This means that the model uses first order auto regression with first order differencing, and the model does not have moving average in the model. Drift is the intercept of the model. The Coefficients for ar1 is 0.4731
+
+
+## Question 5: Com
+pute the sample Extended ACF (EACF) and use the Arima() function to try some other plausible models by experimenting with the orders chosen. Limit your models to 𝑞,𝑝 ≤2 and 𝑑≤2. Use the model summary() function to compare the Corrected Akaike information criterion (i.e., AICc) values (Note: Smaller values indicated better models).
+```{r}
+eacf(train)
+# based on the eacf, p and q can have the combination of (1,1),(1,2),(2,1)
+summary(Arima(train, order=c(1,1,0), include.drift = TRUE))
+
+summary(Arima(train, order=c(1,1,1), include.drift = TRUE))
+
+summary(Arima(train, order=c(1,1,2),include.drift = TRUE))
+
+summary(Arima(train, order=c(2,1,1),include.drift = TRUE))
+
+# Second Order Difference
+summary(Arima(train, order=c(1,2,1), include.drift = TRUE))
+
+summary(Arima(train, order=c(1,2,2),include.drift = TRUE))
+
+summary(Arima(train, order=c(2,2,1),include.drift = TRUE))
+```
+
+Based on the AICc value. For the first order differences the ARIMA(1,1,0) model has the lowest aicc value. For the second difference the ARIMA(1,2,1) model has the lowest aicc value. 
+
+## Question 6:
+Use the model chosen in Question 4 to forecast and plot the GDP forecasts with 80 and 95 % confidence levels for 2013 - 2017 (Test Period).
+```{r}
+# Forecase for five years so h = 5
+
+plot(forecast(auto,h=5,level = c(80, 95)))
+```
+
+## Question 7:
+Compare your forecasts with the actual values using error = actual - estimate and plot the errors. (Note: Use the forecast $mean element for the forecast estimate)
+```{r}
+fore1 <- forecast(auto,h=5,level = c(80, 95))
+fore1 <- fore1$mean
+
+# Need to use invboxcox to transform the predicted back to normal value to compare with the origional data.
+
+fore1 <- InvBoxCox(fore1, 0.23)
+actual <- usgdp[usgdp$Year>2012,]
+err <- actual$GDP - fore1
+plot(err)
+
+```
+
+The plot shows that the error error of the forecast is actually negavive which means they are larger than the actual value. uestion 8:
+Calculate the sum of squared errors.
+```{r}
+sum((err)^2)
+```
+
+The sum of squared error is very big since the actual value and predictions are very big, and it gets larger after squared.
